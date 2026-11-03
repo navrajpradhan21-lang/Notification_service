@@ -1,5 +1,9 @@
 import express from "express"
 import cors from "cors";
+import router from "./routes/notification.routes.js";
+import userRouter from "./routes/user.routes.js";
+
+
 
 const app  = express()
 
@@ -11,7 +15,9 @@ app.get("/health",(req,res)=>{
         success:true,
         message:"Notification Service is running",
     });
-
 });
+
+app.use("/api/v1/notifications",router);
+app.use("/api/v1/users", userRouter);
 
 export default app;

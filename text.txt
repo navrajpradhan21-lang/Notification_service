@@ -74,9 +74,18 @@ Push notifications can be a future extension.
 6. API design
 We'll use versioned REST APIs.
 Method	Endpoint	Purpose
+POST	/api/v1/users	Create a test user
+GET	/api/v1/users/:id	Get a user by ID
+
+
 POST	/api/v1/notifications	Create notification
 GET	/api/v1/notifications	Get user notifications
 GET	/api/v1/notifications/unread-count	Get unread count
 PATCH	/api/v1/notifications/:id/read	Mark as read
 PATCH	/api/v1/notifications/read-all	Mark all as read
 GET	/api/v1/notifications/:id	Get notification details
+
+For local testing, create a user with `POST /api/v1/users` and a JSON body
+such as `{"name":"Test User","email":"test@example.com"}`. Use the returned
+`user._id` as the `x-user-id` header for notification requests. To create a
+notification, also set its `recipient` field to that same user ID.
