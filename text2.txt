@@ -1,0 +1,7 @@
+mkdir notification-service
+cd notification-service
+
+npm init -y
+npm pkg set type=module
+npm install express mongoose dotenv cors ioredis bullmq nodemailer
+npm install -D nodemon

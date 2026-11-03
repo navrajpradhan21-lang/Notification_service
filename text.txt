@@ -1,0 +1,82 @@
+Project: Notification Service
+Intermediate
+Backend + System Design
+Node.js
+
+1. What are we building?
+Imagine an application like Instagram, LinkedIn or an e-commerce platform.
+
+Whenever an event occurs:
+- Someone likes your post.
+- Someone comments on your post.
+- Your order gets shipped.
+- Someone registers on your platform.
+- You receive a password reset email.
+The application needs to notify the relevant user.
+
+But there's a problem.
+
+Should the main API wait until the email is sent before responding to the user?
+
+No. That's where background job processing comes in.
+
+We'll build a service that accepts notification requests, stores them in MongoDB, queues delivery jobs using Redis and processes those jobs through background workers.
+2. Technology stack
+Technology	Responsibility
+Node.js	Runtime
+Express.js	REST API
+MongoDB	Persistent notification storage
+Mongoose	Database modelling
+Redis	Queue infrastructure
+BullMQ	Background job processing
+Nodemailer	Email delivery
+Jest + Supertest	Testing
+Docker	Later deployment
+
+We'll initially support:
+1. In-app notifications
+2. Email notifications
+Push notifications can be a future extension.
+---------------------------------------------------------------------------------------------------------------------------------------
+5. Database design
+
+{
+  _id: ObjectId,
+
+  recipient: ObjectId,
+
+  type: "LIKE",
+
+  channel: "EMAIL",
+
+  title: "Someone liked your post",
+
+  message: "John liked your post",
+
+  data: {
+    postId: "123"
+  },
+
+  status: "PENDING",
+
+  isRead: false,
+
+  scheduledAt: Date,
+
+  sentAt: Date,
+
+  idempotencyKey: String,
+
+  createdAt: Date,
+  updatedAt: Date
+}
+-------------------------------------------------------------------------------------------------------------------------------
+6. API design
+We'll use versioned REST APIs.
+Method	Endpoint	Purpose
+POST	/api/v1/notifications	Create notification
+GET	/api/v1/notifications	Get user notifications
+GET	/api/v1/notifications/unread-count	Get unread count
+PATCH	/api/v1/notifications/:id/read	Mark as read
+PATCH	/api/v1/notifications/read-all	Mark all as read
+GET	/api/v1/notifications/:id	Get notification details
