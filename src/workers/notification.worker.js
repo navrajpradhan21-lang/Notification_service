@@ -14,41 +14,41 @@ import { User } from "../models/user.model.js";
 
 configDotenv();
 
-const startWorker = async()=>{
+const startWorker = async () => {
     await connectDB();
 
     const worker = new Worker(  // Creates a queue consumer
         "notification-queue",// queue name must match
-        async(job)=>{
-            try{
-                const {notificationId} = job.data; //Retrieves data sent by producer
-                console.log("Processing notification:",notificationId);
+        async (job) => {
+            try {
+                const { notificationId } = job.data; //Retrieves data sent by producer
+                console.log("Processing notification:", notificationId);
 
                 //Fetches notification from MongoDB
                 const notification = await Notification.findById(notificationId)
 
-                if(!notification){
+                if (!notification) {
                     throw new Error("Notification not found");
                 }
                 // Avoid processing an already sent notification
                 if (notification.status === "SENT") {
-                return;
+                    return;
                 }
                 // changing the status from PENDING to PROCESSING 
 
                 notification.status = "PROCESSING";
                 await notification.save();
 
-               // Finding the recipient email
+                // Finding the recipient email
                 const recipient = await User.findById(notification.recipient).select("email");
-                if(!recipient?.email){
+                if (!recipient?.email) {
                     throw new Error("Recipent email not found")
                 }
-                 // Send actual email
+                // Send actual email
                 await sendNotificationEmail({
-                to: recipient,
-                subject: notification.title,
-                message: notification.message,
+                    to: recipient.email,
+                    subject: notification.title,
+                    message: notification.message,
                 });
 
                 // Updating notification status
@@ -58,23 +58,31 @@ const startWorker = async()=>{
                 await notification.save();
                 console.log("Notification send successfully");
 
-            }catch(error){
+            } catch (error) {
                 console.log("Notification failed:", error.message);
                 throw error; // BullMQ will retry the job
             }
 
         },
         {
-            connection:redis,
-            concurrency:5,
+            connection: redis,
+            concurrency: 5,
         }
     );
 
-    worker.on("completed",(job)=>{
+    worker.on("completed", (job) => {
         console.log(`Job ${job.id} completed`)
     });
-    worker.on("failed",(job,error)=>{
-        console.log(`Job ${job?.id} failed:`,error.message);
+    // worker.on("failed",(job,error)=>{
+    //     console.log(`Job ${job?.id} failed:`,error.message);
+    // });
+    worker.on("failed", (job, err) => {
+        console.log("Job Failed!");
+        console.log("Job ID:", job?.id);
+        console.log("Job Data:", job?.data);
+        console.log("Error:", err);
+        console.log("Error Message:", err.message);
+        console.log("Stack:", err.stack);
     });
     console.log("Notification Worker Started");
 }

@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer";
 import transporter from "../config/mailer.js";
 
 export const sendNotificationEmail = async({
