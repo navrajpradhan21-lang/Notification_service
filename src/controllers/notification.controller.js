@@ -1,5 +1,5 @@
 import { Notification } from "../models/notification.model.js";
-
+import { notification as notificationQueue } from "../queues/notification.queue.js";
 export const createNotificationController = async (req, res, next) =>{
     try{
         const {
@@ -11,22 +11,29 @@ export const createNotificationController = async (req, res, next) =>{
         data,
         } = req.body;
 
-        const notification = await Notification.create({
+        const savednotification = await Notification.create({
             recipient,
             type,
             channel,
             title,
             message,
-            data})
+            data});
+
+        const job = await notificationQueue.add("send-notification",{
+            notificationId:savednotification._id.toString(),
+        });
+        //job.data contains notificationId 
+        // job.id is the id of the job
+
         return res.status(200).json({
                 success: true,
                 message: "Notification created successfully",
-                notification
-            })    
+                notification:savednotification,
+                jobId: job.id,
+            });    
 
     }catch(error){
         next(error)
-
     }        
 };
 

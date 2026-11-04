@@ -47,6 +47,15 @@ const notificationSchema = new mongoose.Schema({
     isRead:{
         type:Boolean,
         default:false,
+    },
+      sentAt: {
+      type: Date,
+      default: null,
+    },
+
+    idempotencyKey: {
+      type: String,
+      default: null,
     }
 
 },{timestamps:true})

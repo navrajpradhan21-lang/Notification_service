@@ -5,3 +5,22 @@ npm init -y
 npm pkg set type=module
 npm install express mongoose dotenv cors ioredis bullmq nodemailer
 npm install -D nodemon
+
+----------------------------------------------------------
+One important detail: BullMQ workers require a Redis connection configured with maxRetriesPerRequest: null
+We'll separate our application into two processes:
+
+Process A: API Server
+- Receives requests.
+- Validates input.
+- Saves notification to MongoDB.
+- Adds a job to BullMQ.
+- Returns a response.
+Process B: Worker
+- Fetches jobs from BullMQ.
+- Retrieves notification data.
+- Executes delivery logic.
+- Updates notification status in MongoDB.
+---------------------------------------------------------------------
+using docker to start local redis container 
+docker run --name notification-redis -p 6379:6379 -d redis
