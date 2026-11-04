@@ -1,5 +1,6 @@
 import { Notification } from "../models/notification.model.js";
 import { notification as notificationQueue } from "../queues/notification.queue.js";
+
 export const createNotificationController = async (req, res, next) =>{
     try{
         const {

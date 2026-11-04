@@ -8,6 +8,9 @@ import { Worker } from "bullmq";
 import redis from "../config/redis.js";
 import { Notification } from "../models/notification.model.js";
 import connectDB from "../config/db.js";
+import { sendNotificationEmail } from "../services/email.service.js";
+
+import { User } from "../models/user.model.js";
 
 configDotenv();
 
@@ -27,9 +30,26 @@ const startWorker = async()=>{
                 if(!notification){
                     throw new Error("Notification not found");
                 }
-                //Adding a delay Simulating email sending
-                console.log("Sending email...");
-                await new Promise((resolve)=>setTimeout(resolve,2000));
+                // Avoid processing an already sent notification
+                if (notification.status === "SENT") {
+                return;
+                }
+                // changing the status from PENDING to PROCESSING 
+
+                notification.status = "PROCESSING";
+                await notification.save();
+
+               // Finding the recipient email
+                const recipient = await User.findById(notification.recipient).select("email");
+                if(!recipient?.email){
+                    throw new Error("Recipent email not found")
+                }
+                 // Send actual email
+                await sendNotificationEmail({
+                to: recipient,
+                subject: notification.title,
+                message: notification.message,
+                });
 
                 // Updating notification status
                 notification.status = "SENT";
