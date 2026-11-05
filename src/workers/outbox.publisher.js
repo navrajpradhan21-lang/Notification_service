@@ -4,7 +4,6 @@ configDotenv();
 
 import connectDb from "../config/db.js";
 import { Outbox } from "../models/outbox.model.js";
-import { notification } from "../queues/notification.queue.js";
 import { notification as notificationQueue } from "../queues/notification.queue.js";
 
 const sleep = async(ms)=>{
