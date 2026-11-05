@@ -24,3 +24,37 @@ Process B: Worker
 ---------------------------------------------------------------------
 using docker to start local redis container 
 docker run --name notification-redis -p 6379:6379 -d redis
+_____________________________________________________
+## Milestone 5 — Reliability Engineering
+Imagine Gmail temporarily becomes unavailable. Should our notification service immediately give up, or retry after a delay?
+
+That's exactly what we're going to solve next.
+we addded a proper retry 
+------------------------------------------------------------------------------------------------------------------------
+
+Important interview concept: Is retry enough?
+Consider this situation:
+1. Gmail accepts your email.
+2. Your worker crashes before updating MongoDB to SENT.
+3. BullMQ retries the job.
+4. The worker sends the same email again.
+The user might receive two emails!
+
+This is a duplicate processing problem.
+We've already implemented retries in BullMQ. But retries introduce another problem: duplicate execution.
+The solution we'll learn next is called Idempotency.
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+What if MongoDB successfully saves the notification, but Redis is unavailable when we try to add the job?
+
+Then:
+- Notification exists in MongoDB.
+- Job does not exist in Redis.
+- Email never gets processed.
+This is called the dual-write problem.
+
+We'll solve it using the Transactional Outbox Pattern in a later lesson.
+This is called the dual-write problem.
+
+The problem isn't specific to MongoDB and Redis. 
+It happens whenever an application needs to update two independent systems as part of one business operation.

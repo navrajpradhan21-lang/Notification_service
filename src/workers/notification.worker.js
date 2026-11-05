@@ -20,8 +20,9 @@ const startWorker = async () => {
     const worker = new Worker(  // Creates a queue consumer
         "notification-queue",// queue name must match
         async (job) => {
+            const { notificationId } = job.data; //Retrieves data sent by producer
             try {
-                const { notificationId } = job.data; //Retrieves data sent by producer
+                
                 console.log("Processing notification:", notificationId);
 
                 //Fetches notification from MongoDB
@@ -44,6 +45,7 @@ const startWorker = async () => {
                 if (!recipient?.email) {
                     throw new Error("Recipent email not found")
                 }
+
                 // Send actual email
                 await sendNotificationEmail({
                     to: recipient.email,
@@ -60,6 +62,8 @@ const startWorker = async () => {
 
             } catch (error) {
                 console.log("Notification failed:", error.message);
+                await Notification.findByIdAndUpdate( notificationId,{status:"PENDING"});
+
                 throw error; // BullMQ will retry the job
             }
 
@@ -73,17 +77,19 @@ const startWorker = async () => {
     worker.on("completed", (job) => {
         console.log(`Job ${job.id} completed`)
     });
-    // worker.on("failed",(job,error)=>{
-    //     console.log(`Job ${job?.id} failed:`,error.message);
-    // });
-    worker.on("failed", (job, err) => {
-        console.log("Job Failed!");
-        console.log("Job ID:", job?.id);
-        console.log("Job Data:", job?.data);
-        console.log("Error:", err);
-        console.log("Error Message:", err.message);
-        console.log("Stack:", err.stack);
+    worker.on("failed",async (job,error)=>{
+        console.log(`Job ${job?.id} failed:`,error.message);
+
+        // Check whether the job has exhausted its configured retry attempts (defaults to 1).
+        if(job && job.attemptsMade >= (job.opts.attempts ?? 1)){
+        await Notification.findByIdAndUpdate(
+            job.data.notificationId,
+            {status:"FAILED"}
+        );
+        console.log("All retries exhausted. Notification marked FAILED.");
+    }
     });
+   
     console.log("Notification Worker Started");
 }
 

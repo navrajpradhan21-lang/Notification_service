@@ -52,7 +52,6 @@ const notificationSchema = new mongoose.Schema({
       type: Date,
       default: null,
     },
-
     idempotencyKey: {
       type: String,
       default: null,
@@ -71,6 +70,22 @@ notificationSchema.index({
   isRead: 1,
 });*/
 
+// Adding a unique Partial index
+notificationSchema.index(
+  {
+    recipient:1,
+    idempotencyKey:1
+  },
+  {
+    unique:true,
+    partialFilterExpression:{
+      idempotencyKey:{$type:"string"},
+    },
+  }
+);
+// The above lines tells us that 
+// when a notification has a string idempotency key, that key must be unique.
+//  This helps prevent duplicate notifications when the same request is retried.
 
 export const Notification = mongoose.model(
   "Notification",

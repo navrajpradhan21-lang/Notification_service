@@ -3,35 +3,48 @@ import { notification as notificationQueue } from "../queues/notification.queue.
 
 export const createNotificationController = async (req, res, next) =>{
     try{
-        const {
-        recipient,
-        type,
-        channel,
-        title,
-        message,
-        data,
-        } = req.body;
+        const data = req.body;
+        let notification;
 
-        const savednotification = await Notification.create({
-            recipient,
-            type,
-            channel,
-            title,
-            message,
-            data});
-
-        const job = await notificationQueue.add("send-notification",{
-            notificationId:savednotification._id.toString(),
+        try{
+            notification = await Notification.create({
+            ...data,
+            status:data.channel==="IN_APP"?"SENT":"PENDING",
+            sentAt:data.channel === "IN_APP"?new Date():null,
         });
-        //job.data contains notificationId 
-        // job.id is the id of the job
 
-        return res.status(200).json({
-                success: true,
-                message: "Notification created successfully",
-                notification:savednotification,
-                jobId: job.id,
-            });    
+        }catch(error){
+            // If the idempoyency key already exists,return its notification
+            if(error.code === 11000 && data.idempotencyKey){
+                const existingNotification = await Notification.findOne({
+                recipient: data.recipient,
+                idempotencyKey: data.idempotencyKey,
+                });
+
+                if(existingNotification){
+                    return res.status(200).json({
+                        success:true,
+                        notification:existingNotification
+                    });
+                }
+            }
+            throw error; 
+        }
+        // Queue email only after creating a new notification.
+       
+        if(data.channel === "EMAIL"){
+            await notificationQueue.add("send-notification",
+                {notificationId:notification._id.toString()},
+                {jobId:`notification-${notification._id}`}
+            );
+        }
+
+        return res.status(201).json({
+            success:true,
+            notification,
+        }); 
+        //job.data contains notificationId 
+        //job.id is the id of the job
 
     }catch(error){
         next(error)
