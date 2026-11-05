@@ -58,3 +58,35 @@ This is called the dual-write problem.
 
 The problem isn't specific to MongoDB and Redis. 
 It happens whenever an application needs to update two independent systems as part of one business operation.
+Before writing code, there's one thing to understand.
+
+MongoDB transactions require a replica set or sharded cluster. They won't work on a normal standalone local MongoDB server.
+
+You have two options:
+- MongoDB Atlas: Use your Atlas database, which supports transactions.
+- Local MongoDB: Configure a single-node replica set.
+For now, if you're already using MongoDB Atlas, you can continue with it.
+9. Let's understand what happens if Redis goes down
+This is the biggest benefit of our new architecture.
+
+Imagine:
+- MongoDB is working.
+- Redis is down.
+- A user creates a notification.
+What happens?
+Operation	Result
+Save notification	Success
+Save outbox event	Success
+Publish to Redis	Fails
+Outbox event	Remains recoverable
+Redis comes back	Publisher retries
+Email	Eventually processed
+
+Your notification is not lost just because Redis was temporarily unavailable.
+
+One important detail: This architecture provides at-least-once event publishing, not exactly-once delivery. If the publisher crashes after adding a BullMQ job but before marking the event PROCESSED, it may publish again. The deterministic job ID and worker's SENT check help protect against duplicates. Also, in production we'd add publisher lease renewal, monitoring and graceful shutdown.
+Important database housekeeping
+If you previously created the unique index on just idempotencyKey, remove that old index after creating the new compound index. Otherwise, it may still prevent different recipients from using the same key.
+
+Also, don't forget: transactions need MongoDB Atlas or a configured local replica set.
+DUAL WRITE PROBLEM SOLVE

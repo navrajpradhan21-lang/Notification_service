@@ -1,0 +1,26 @@
+## Dead-letter-queue
+
+Lesson 4 — Dead Letter Queue (DLQ)
+Imagine Gmail rejects an email because the recipient's email address is invalid.
+Our current BullMQ configuration retries the job three times:
+1. Attempt 1 → Failed.
+2. Attempt 2 → Failed.
+3. Attempt 3 → Failed.
+The job remains in BullMQ's failed state because we configured removeOnFail: false
+
+But how do we manage these permanently failed jobs?
+That's where a Dead Letter Queue (DLQ) comes in.
+What is a Dead Letter Queue?
+A DLQ is a separate queue used to store jobs that have exhausted their retry attempts
+or cannot be processed successfully.
+Notification Queue
+
+Normal email jobs -----> Notification Worker(Attempts delivery up to 3 times)------->All attempts failedDead Letter Queue
+Stores permanently failed jobs for investigation or replay   <-----------------------------
+
+Why is this useful?
+- Failed jobs don't disappear.
+- Developers can investigate failures.
+- Jobs can be retried after fixing the problem.
+- You can monitor permanent failures
+-------------------------------------------------------------------------------------------------------

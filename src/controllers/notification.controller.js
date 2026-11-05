@@ -1,54 +1,70 @@
+import mongoose from "mongoose";
 import { Notification } from "../models/notification.model.js";
-import { notification as notificationQueue } from "../queues/notification.queue.js";
+import { Outbox } from "../models/outbox.model.js";
 
-export const createNotificationController = async (req, res, next) =>{
-    try{
-        const data = req.body;
-        let notification;
 
-        try{
-            notification = await Notification.create({
-            ...data,
-            status:data.channel==="IN_APP"?"SENT":"PENDING",
-            sentAt:data.channel === "IN_APP"?new Date():null,
+export const createNotificationController = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const data = req.body;
+    let notification;
+
+    await session.withTransaction(async () => {
+      const created = await Notification.create(
+        [{
+          ...data,
+          status: data.channel === "IN_APP" ? "SENT" : "PENDING",
+          sentAt: data.channel === "IN_APP" ? new Date() : null,
+        }],
+        { session }
+      );
+
+      notification = created[0];
+
+      // Save an email event in the same transaction as the notification.
+      if (data.channel === "EMAIL") {
+        await Outbox.create(
+          [{
+            eventType: "SEND_EMAIL",
+            payload: {
+              notificationId: notification._id.toString(),
+            },
+          }],
+          { session }
+        );
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      notification,
+    });
+  } catch (error) {
+    // If this request used an idempotency key that already exists,
+    // return the existing notification.
+    if (error.code === 11000 && req.body.idempotencyKey) {
+      try {
+        const existingNotification = await Notification.findOne({
+          recipient: req.body.recipient,
+          idempotencyKey: req.body.idempotencyKey,
         });
 
-        }catch(error){
-            // If the idempoyency key already exists,return its notification
-            if(error.code === 11000 && data.idempotencyKey){
-                const existingNotification = await Notification.findOne({
-                recipient: data.recipient,
-                idempotencyKey: data.idempotencyKey,
-                });
-
-                if(existingNotification){
-                    return res.status(200).json({
-                        success:true,
-                        notification:existingNotification
-                    });
-                }
-            }
-            throw error; 
+        if (existingNotification) {
+          return res.status(200).json({
+            success: true,
+            notification: existingNotification,
+          });
         }
-        // Queue email only after creating a new notification.
-       
-        if(data.channel === "EMAIL"){
-            await notificationQueue.add("send-notification",
-                {notificationId:notification._id.toString()},
-                {jobId:`notification-${notification._id}`}
-            );
-        }
+      } catch (lookupError) {
+        return next(lookupError);
+      }
+    }
 
-        return res.status(201).json({
-            success:true,
-            notification,
-        }); 
-        //job.data contains notificationId 
-        //job.id is the id of the job
-
-    }catch(error){
-        next(error)
-    }        
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
 };
 
 export const getNotificationController = async(req,res,next)=>{
