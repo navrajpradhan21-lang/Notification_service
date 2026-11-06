@@ -1,0 +1,4 @@
+//npm install -D jest supertest cross-env
+"test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+"test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch"
+--runInBand runs tests sequentially in one process, which makes database testing easier to manage initially.
