@@ -4,9 +4,10 @@ import { Outbox } from "../models/outbox.model.js";
 
 
 export const createNotificationController = async (req, res, next) => {
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     const data = req.body;
     let notification;
 
@@ -63,15 +64,20 @@ export const createNotificationController = async (req, res, next) => {
 
     return next(error);
   } finally {
-    await session.endSession();
+    if (session) {
+      await session.endSession();
+    }
   }
 };
 
 export const getNotificationController = async(req,res,next)=>{
     try{
         const userId = req.user.id;
-        const {page=1,limit =10} = req.query;
-        const skip = (page-1)*limit;
+        const rawPage = Number(req.query.page ?? 1);
+        const rawLimit = Number(req.query.limit ?? 10);
+        const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+        const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 10;
+        const skip = (page - 1) * limit;
         const [notifications,total] = await Promise.all([
             Notification.find({recipient:userId})
             .sort({createdAt:-1})

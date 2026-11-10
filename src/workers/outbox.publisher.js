@@ -6,9 +6,9 @@ import connectDb from "../config/db.js";
 import { Outbox } from "../models/outbox.model.js";
 import { notification as notificationQueue } from "../queues/notification.queue.js";
 
-const sleep = async(ms)=>{
-    new Promise((resolve)=>setTimeout(resolve,ms))
-}
+const sleep = async (ms) => {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 const publishEvent = async()=>{
     while(true){

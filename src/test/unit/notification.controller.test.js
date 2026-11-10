@@ -4,6 +4,9 @@ import { jest, describe, test, expect, beforeEach } from "@jest/globals";
 const mockStartSession = jest.fn();
 const mockNotificationCreate = jest.fn();
 const mockNotificationFindOne = jest.fn();
+const mockNotificationFind = jest.fn();
+const mockNotificationCountDocuments = jest.fn();
+const mockNotificationFindOneAndUpdate = jest.fn();
 const mockOutboxCreate = jest.fn();
 
 jest.unstable_mockModule("mongoose", () => ({
@@ -16,6 +19,9 @@ jest.unstable_mockModule("../../models/notification.model.js", () => ({
   Notification: {
     create: mockNotificationCreate,
     findOne: mockNotificationFindOne,
+    find: mockNotificationFind,
+    countDocuments: mockNotificationCountDocuments,
+    findOneAndUpdate: mockNotificationFindOneAndUpdate,
   },
 }));
 
@@ -144,6 +150,106 @@ describe("createNotificationController", () => {
 
     expect(next).toHaveBeenCalledWith(error);
     expect(session.endSession).toHaveBeenCalledTimes(1);
+  });
+
+  test("should fetch paginated notifications for the authenticated user", async () => {
+    const user = { id: "user-456" };
+    const notifications = [{ _id: "n1", recipient: user.id, title: "Test" }];
+    const queryMock = {
+      sort: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(notifications),
+    };
+
+    mockNotificationFind.mockReturnValue(queryMock);
+    mockNotificationCountDocuments.mockResolvedValue(1);
+
+    const { getNotificationController } = await import("../../controllers/notification.controller.js");
+
+    const reqWithUser = { user, query: { page: "2", limit: "5" } };
+
+    await getNotificationController(reqWithUser, res, next);
+
+    expect(mockNotificationFind).toHaveBeenCalledWith({ recipient: user.id });
+    expect(queryMock.sort).toHaveBeenCalledWith({ createdAt: -1 });
+    expect(queryMock.skip).toHaveBeenCalledWith(5);
+    expect(queryMock.limit).toHaveBeenCalledWith(5);
+    expect(queryMock.lean).toHaveBeenCalledTimes(1);
+    expect(mockNotificationCountDocuments).toHaveBeenCalledWith({ recipient: user.id });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      result: {
+        notifications,
+        pagination: { total: 1, page: 2, limit: 5, totalPages: 1 },
+      },
+    });
+  });
+
+  test("should mark a notification as read for the correct user", async () => {
+    const reqWithUser = {
+      user: { id: "user-789" },
+      params: { id: "notification-123" },
+    };
+    const updatedNotification = { _id: "notification-123", recipient: "user-789", isRead: true };
+
+    mockNotificationFindOneAndUpdate.mockResolvedValue(updatedNotification);
+
+    const { markNotificationAsReadController } = await import("../../controllers/notification.controller.js");
+
+    await markNotificationAsReadController(reqWithUser, res, next);
+
+    expect(mockNotificationFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "notification-123", recipient: "user-789" },
+      { $set: { isRead: true } },
+      { new: true, runValidators: true }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      message: "Notication marked as read",
+      notification: updatedNotification,
+    });
+  });
+
+  test("should return 404 when marking a missing notification as read", async () => {
+    const reqWithUser = {
+      user: { id: "user-789" },
+      params: { id: "notification-404" },
+    };
+
+    mockNotificationFindOneAndUpdate.mockResolvedValue(null);
+
+    const { markNotificationAsReadController } = await import("../../controllers/notification.controller.js");
+
+    await markNotificationAsReadController(reqWithUser, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: "Notification not found",
+    });
+  });
+
+  test("should return unread notification count for the authenticated user", async () => {
+    const reqWithUser = { user: { id: "user-321" } };
+
+    mockNotificationCountDocuments.mockResolvedValue(7);
+
+    const { unreadCountController } = await import("../../controllers/notification.controller.js");
+
+    await unreadCountController(reqWithUser, res, next);
+
+    expect(mockNotificationCountDocuments).toHaveBeenCalledWith({
+      recipient: "user-321",
+      isRead: false,
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      unreadCount: 7,
+    });
   });
 });
 

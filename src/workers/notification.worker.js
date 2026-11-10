@@ -11,7 +11,6 @@ import connectDB from "../config/db.js";
 import { sendNotificationEmail } from "../services/email.service.js";
 import { deadLetterQueue } from "../queues/dead-letter.queue.js";
 import { User } from "../models/user.model.js";
-import { notification } from "../queues/notification.queue.js";
 
 configDotenv();
 
@@ -88,11 +87,11 @@ const startWorker = async () => {
                     job.data.notificationId,
                     { status: "FAILED" }
                 );
-                // Move job informatiom into DLQ
+                // Move job information into DLQ
                 await deadLetterQueue.add("failed-notification",{
                     originalJobId:job.id,
                     notificationId:job.data.notificationId,
-                    error:error.mesasge,
+                    error:error.message,
                     failedAt:new Date().toISOString(),
                 });
                 console.log("Job moved to Dead Letter Queue");
